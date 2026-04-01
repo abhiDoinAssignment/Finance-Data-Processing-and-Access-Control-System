@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Mail, Lock, Loader2, ArrowRight, Shield } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -17,7 +18,7 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+            const res = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
             loginStore(res.data.token, res.data.user);
             navigate('/');
         } catch (err) {
@@ -94,7 +95,7 @@ const Login = () => {
                         </div>
                         
                         <button 
-                            onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
+                            onClick={() => window.location.href = `${API_BASE_URL}/auth/google`}
                             className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-slate-800/50 text-slate-300 border border-slate-700/50 hover:bg-slate-700/50 transition-all text-sm font-semibold"
                         >
                             <img src="https://www.google.com/favicon.ico" className="w-4 h-4" /> Continue with Google

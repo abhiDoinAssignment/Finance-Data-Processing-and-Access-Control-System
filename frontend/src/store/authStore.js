@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {jwtDecode} from 'jwt-decode';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const useAuthStore = create((set) => ({
     user: JSON.parse(localStorage.getItem('user')) || null,

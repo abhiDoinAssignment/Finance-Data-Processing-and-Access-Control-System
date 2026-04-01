@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const useFinanceStore = create((set, get) => ({
     records: [],
@@ -11,7 +12,7 @@ const useFinanceStore = create((set, get) => ({
         set({ loading: true });
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://localhost:5000/api/records', {
+            const res = await axios.get(`${API_BASE_URL}/records`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             set({ records: res.data, loading: false });
@@ -24,7 +25,7 @@ const useFinanceStore = create((set, get) => ({
         set({ loading: true });
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://localhost:5000/api/dashboard/summary', {
+            const res = await axios.get(`${API_BASE_URL}/dashboard/summary`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             set({ summary: res.data, loading: false });
@@ -36,7 +37,7 @@ const useFinanceStore = create((set, get) => ({
     addRecord: async (record) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:5000/api/records', record, {
+            const res = await axios.post(`${API_BASE_URL}/records`, record, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             await get().fetchRecords();
@@ -50,7 +51,7 @@ const useFinanceStore = create((set, get) => ({
     deleteRecord: async (id) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5000/api/records/${id}`, {
+            await axios.delete(`${API_BASE_URL}/records/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             await get().fetchRecords();

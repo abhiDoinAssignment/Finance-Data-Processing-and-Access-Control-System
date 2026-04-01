@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Mail, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const Register = () => {
     const [formData, setFormData] = useState({ 
@@ -19,7 +20,7 @@ const Register = () => {
         setLoading(true);
         setError('');
         try {
-            await axios.post('http://localhost:5000/api/auth/register', formData);
+            await axios.post(`${API_BASE_URL}/auth/register`, formData);
             localStorage.setItem('pending_email', formData.email);
             navigate('/verify-otp');
         } catch (err) {

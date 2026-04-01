@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Activity, 
-  Search, 
-  History, 
-  User, 
-  Settings, 
-  Database, 
-  Terminal 
-} from 'lucide-react';
 import axios from 'axios';
+import { Terminal, Shield, RefreshCcw, Search, Clock, User, Globe } from 'lucide-react';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const Logs = () => {
     const [logs, setLogs] = useState([]);
@@ -16,15 +9,16 @@ const Logs = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchLogs = async () => {
+        setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://localhost:5000/api/admin/logs', {
+            const res = await axios.get(`${API_BASE_URL}/admin/logs`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLogs(res.data);
-            setLoading(false);
         } catch (err) {
-            console.error(err);
+            console.error('Failed to fetch logs:', err);
+        } finally {
             setLoading(false);
         }
     };
@@ -33,68 +27,99 @@ const Logs = () => {
         fetchLogs();
     }, []);
 
-    const filteredLogs = logs.filter(l => 
-        l.action.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        l.user?.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredLogs = logs.filter(log => 
+        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.user?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const getIcon = (action) => {
-        if (action.includes('USER')) return <User size={14} className="text-blue-400" />;
-        if (action.includes('RECORD')) return <Database size={14} className="text-emerald-400" />;
-        return <Activity size={14} className="text-slate-400" />;
-    };
-
     return (
-        <div className="space-y-8">
-            <header>
-                <h2 className="text-3xl font-bold text-slate-100 flex items-center gap-3">
-                    <History size={32} className="text-emerald-500" /> System Audit Trail
-                </h2>
-                <p className="text-slate-400 mt-1">Real-time event stream for system activity and security monitoring.</p>
-            </header>
-
-            <div className="glass-panel p-4 rounded-xl flex gap-4 items-center">
-                <Search className="text-slate-500 ml-2" size={18} />
-                <input 
-                    type="text" 
-                    placeholder="Search actions or users..." 
-                    className="bg-transparent border-none outline-none flex-1 text-slate-200"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+        <div className="p-6 max-w-7xl mx-auto space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-500">
+                        <Terminal size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white tracking-tight">Audit Trail</h1>
+                        <p className="text-slate-500 text-sm">Real-time forensic event monitoring</p>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Filter logs..."
+                            className="bg-slate-900 border border-slate-800 text-sm rounded-xl py-2 pl-10 pr-4 text-slate-300 focus:outline-none focus:border-emerald-500/50 w-full md:w-64 transition-all"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button 
+                        onClick={fetchLogs}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl transition-all border border-slate-700"
+                    >
+                        <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
-            <div className="glass-panel p-2 rounded-2xl border border-white/5 bg-[#060a14]/50">
-                <div className="flex bg-slate-800/30 font-mono text-[10px] py-2 px-6 text-slate-500 uppercase tracking-tighter rounded-t-xl mb-1">
-                    <span className="w-1/4">Timestamp</span>
-                    <span className="w-1/4">User</span>
-                    <span className="w-1/4">Action</span>
-                    <span className="flex-1">Details</span>
-                </div>
-                <div className="max-h-[600px] overflow-y-auto space-y-1 p-1 terminal-scroll">
-                    {filteredLogs.map((log) => (
-                        <div key={log.id} className="flex items-center gap-4 py-3 px-5 hover:bg-white/5 transition-all rounded-lg font-mono text-xs border border-transparent hover:border-white/5">
-                            <span className="w-1/4 text-slate-500">{new Date(log.created_at).toLocaleString()}</span>
-                            <span className="w-1/4 flex items-center gap-2 text-slate-300">
-                                <div className="w-2 h-2 rounded-full bg-slate-700" />
-                                {log.user || 'System'}
-                            </span>
-                            <span className="w-1/4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1.5 ${
-                                    log.action.includes('RECORD') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-700 text-slate-300'
-                                }`}>
-                                    {getIcon(log.action)}
-                                    {log.action}
-                                </span>
-                            </span>
-                            <span className="flex-1 text-slate-500 truncate max-w-xs">{JSON.stringify(log.details)}</span>
-                        </div>
-                    ))}
-                    {loading && (
-                        <div className="py-20 text-center animate-pulse text-emerald-500 text-sm italic font-mono">
-                             fetching encrypted traces...
-                        </div>
-                    )}
+            <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02]">
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Timestamp</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Identity</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Event</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Origin / Agent</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {filteredLogs.map((log) => (
+                                <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center gap-2 text-slate-300">
+                                            <Clock size={14} className="text-slate-500" />
+                                            <span className="text-xs font-mono">{new Date(log.created_at).toLocaleString()}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-emerald-500 font-bold border border-emerald-500/30">
+                                                {log.user?.[0]?.toUpperCase() || '?'}
+                                            </div>
+                                            <span className="text-sm text-slate-300 font-medium">{log.user || 'System'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight uppercase border ${
+                                            log.action.includes('REGISTER') || log.action.includes('VERIFY')
+                                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                : log.action.includes('LOGIN')
+                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                        }`}>
+                                            <Shield size={10} />
+                                            {log.action.replace(/_/g, ' ')}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+                                                <Globe size={12} className="text-slate-600" />
+                                                <span>{log.ip_address || 'Internal'}</span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-600 truncate max-w-[200px]" title={log.user_agent}>
+                                                {log.user_agent || 'N/A'}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

@@ -129,10 +129,10 @@ const googleCallback = async (req, res) => {
 
         await logAction(user.id, 'USER_LOGIN', { method: 'google' }, req);
         
-        res.redirect(`http://localhost:5173/auth/callback?token=${token}`);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
     } catch (err) {
         console.error(err);
-        res.redirect('http://localhost:5173/login?error=oauth_failed');
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
     }
 };
 
