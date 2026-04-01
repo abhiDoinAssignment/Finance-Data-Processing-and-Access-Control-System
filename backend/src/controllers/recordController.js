@@ -9,7 +9,7 @@ const createRecord = async (req, res) => {
             [req.user.id, amount, type, category, date, description]
         );
         
-        await logAction(req.user.id, 'RECORD_CREATED', { record_id: result.insertId, amount, type });
+        await logAction(req.user.id, 'RECORD_CREATED', { record_id: result.insertId, amount, type }, req);
 
         res.status(201).json({ message: 'Record created', id: result.insertId });
     } catch (err) {
@@ -45,7 +45,7 @@ const updateRecord = async (req, res) => {
             [amount, type, category, date, description, id]
         );
         
-        await logAction(req.user.id, 'RECORD_UPDATED', { record_id: id, old: old[0], new: req.body });
+        await logAction(req.user.id, 'RECORD_UPDATED', { record_id: id, old: old[0], new: req.body }, req);
 
         res.json({ message: 'Record updated' });
     } catch (err) {
@@ -61,7 +61,7 @@ const deleteRecord = async (req, res) => {
         
         await pool.query('DELETE FROM financial_records WHERE id = ?', [id]);
         
-        await logAction(req.user.id, 'RECORD_DELETED', { record_id: id, state: old[0] });
+        await logAction(req.user.id, 'RECORD_DELETED', { record_id: id, state: old[0] }, req);
 
         res.json({ message: 'Record deleted' });
     } catch (err) {

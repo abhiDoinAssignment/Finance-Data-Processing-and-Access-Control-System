@@ -19,7 +19,7 @@ const register = async (req, res) => {
             return res.status(400).json({ message: 'Invalid role' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         const [result] = await pool.query(
             'INSERT INTO users (username, email, password_hash, role_id, is_verified) VALUES (?, ?, ?, ?, FALSE)',
@@ -34,7 +34,7 @@ const register = async (req, res) => {
         await pool.query('INSERT INTO otps (user_id, otp_code, expires_at) VALUES (?, ?, ?)', [userId, otp, expiresAt]);
         await sendOTP(email, otp);
 
-        await logAction(userId, 'USER_REGISTERED', { email });
+        await logAction(userId, 'USER_REGISTERED', { email }, req);
 
         res.status(201).json({ message: 'User registered. Please verify your email with the OTP sent.', userId });
     } catch (err) {
@@ -64,7 +64,7 @@ const verifyOTP = async (req, res) => {
         await pool.query('UPDATE users SET is_verified = TRUE WHERE id = ?', [userId]);
         await pool.query('DELETE FROM otps WHERE user_id = ?', [userId]);
         
-        await logAction(userId, 'USER_VERIFIED', { email });
+        await logAction(userId, 'USER_VERIFIED', { email }, req);
 
         res.json({ message: 'Email verified successfully' });
     } catch (err) {
@@ -105,7 +105,7 @@ const login = async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRY }
         );
 
-        await logAction(user.id, 'USER_LOGIN', { method: 'local' });
+        await logAction(user.id, 'USER_LOGIN', { method: 'local' }, req);
 
         res.json({
             message: 'Login successful',
@@ -127,7 +127,7 @@ const googleCallback = async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRY }
         );
 
-        await logAction(user.id, 'USER_LOGIN', { method: 'google' });
+        await logAction(user.id, 'USER_LOGIN', { method: 'google' }, req);
         
         res.redirect(`http://localhost:5173/auth/callback?token=${token}`);
     } catch (err) {

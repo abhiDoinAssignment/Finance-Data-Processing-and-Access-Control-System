@@ -72,6 +72,9 @@ async function initDB() {
                 user_id INT,
                 action VARCHAR(100) NOT NULL,
                 details JSON,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                request_path VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
