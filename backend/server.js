@@ -54,9 +54,26 @@ app.use(passport.session());
 // Routes
 app.use('/api', apiRoutes);
 
-// Health Check
-app.get('/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Health Check — excluded from rate limiter, safe to ping externally
+app.get('/health', async (req, res) => {
+    try {
+        const pool = require('./src/config/db');
+        await pool.query('SELECT 1');
+        res.status(200).json({
+            status: 'OK',
+            service: 'Zorvyn Finance API',
+            database: 'connected',
+            timestamp: new Date().toISOString(),
+            uptime: `${Math.floor(process.uptime())}s`
+        });
+    } catch (err) {
+        res.status(503).json({
+            status: 'DEGRADED',
+            service: 'Zorvyn Finance API',
+            database: 'unreachable',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // Centralized Error Handling
