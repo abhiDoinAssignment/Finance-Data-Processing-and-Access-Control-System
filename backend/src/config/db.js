@@ -10,7 +10,9 @@ console.log('DEBUG: DB Config - Target Host:', process.env.DB_HOST);
 let caCert;
 if (process.env.DB_CA_CERT) {
     console.log('DEBUG: DB Config - Using CA cert from environment (Base64 Mode)');
-    caCert = Buffer.from(process.env.DB_CA_CERT, 'base64').toString('utf-8');
+    // Strip surrounding quotes/whitespace Render may inject around the value
+    const rawCert = process.env.DB_CA_CERT.replace(/^["'\s]+|["'\s]+$/g, '');
+    caCert = Buffer.from(rawCert, 'base64').toString('utf-8');
 } else {
     try {
         const certPath = path.resolve(__dirname, '../../certs/mysql_ca.pem');
