@@ -7,6 +7,7 @@ const pool = require('./src/config/db');
 const passport = require('./src/config/passport');
 const rateLimit = require('express-rate-limit');
 const apiRoutes = require('./src/routes/api');
+const { googleCallback } = require('./src/controllers/authController');
 require('dotenv').config();
 
 const app = express();
@@ -24,13 +25,17 @@ const sessionStore = new MySQLStore({
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
-            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-            "img-src": ["'self'", "data:", "https://*.googleusercontent.com"],
-            "script-src": ["'self'"],
-            "connect-src": ["'self'"]
+            defaultSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            scriptSrc: ["'self'"],
+            connectSrc: ["'self'", process.env.CORS_ORIGIN || 'http://localhost:5173'],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            fontSrc: ["'self'", "https:", "data:"],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"],
         }
     }
-})); // Sets security headers with custom CSP for local dev
+})); // Sets security headers with custom CSP
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -71,6 +76,38 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ── Google OAuth — mounted at root level so browser redirects work
+// regardless of whether VITE_API_URL includes /api or not
+app.get('/auth/google', (req, res, next) => {
+    const role = req.query.role || 'Viewer';
+    const org  = req.query.organization_name || 'Zorvyn Global';
+    req.session.signupRole = role;
+    req.session.organizationName = org;
+    if (req.query.signup === 'true') {
+        req.session.isSignupProcess = true;
+    } else {
+        delete req.session.isSignupProcess;
+    }
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+app.get('/auth/google/callback', (req, res, next) => {
+    passport.authenticate('google', (err, user, info) => {
+        if (err) return next(err);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        if (!user) {
+            if (info && info.message === 'Account already exists') {
+                return res.redirect(`${frontendUrl}/register?error=account_exists`);
+            }
+            return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+        }
+        req.logIn(user, (err) => {
+            if (err) return next(err);
+            return googleCallback(req, res);
+        });
+    })(req, res, next);
+});
 
 // Routes
 app.use('/api', apiRoutes);
