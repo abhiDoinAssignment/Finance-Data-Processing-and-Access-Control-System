@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+const pool = require('./src/config/db');
 const passport = require('./src/config/passport');
 const rateLimit = require('express-rate-limit');
 const apiRoutes = require('./src/routes/api');
@@ -9,6 +11,14 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ── Session Store Configuration ──────────────────────────────────────────────
+const sessionStore = new MySQLStore({
+    clearExpired: true,
+    checkExpirationInterval: 900000, // 15 min
+    expiration: 86400000,            // 24h
+    createDatabaseTable: true,       // Auto-create 'sessions' table
+}, pool);
 
 // Security Middleware
 app.use(helmet({
@@ -46,7 +56,9 @@ app.use('/api/auth/', authLimiter);
 
 // Session for Passport OAuth
 app.use(session({
+    key: 'zorvyn_session',
     secret: process.env.JWT_SECRET,
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
