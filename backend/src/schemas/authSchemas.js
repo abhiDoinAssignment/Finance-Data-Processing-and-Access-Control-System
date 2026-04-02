@@ -7,7 +7,8 @@ const registerSchema = Joi.object({
         .messages({
             'string.pattern.base': 'Password must be 8-30 characters and include alphanumeric or special characters (!@#$%^&*)'
         }),
-    role_name: Joi.string().valid('Admin', 'Analyst', 'Viewer').default('Viewer')
+    role_name: Joi.string().valid('Admin', 'Analyst', 'Viewer').default('Viewer'),
+    organization_name: Joi.string().min(2).max(100).allow('', null)
 });
 
 const loginSchema = Joi.object({

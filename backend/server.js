@@ -11,7 +11,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security Middleware
-app.use(helmet()); // Sets critical security headers
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "img-src": ["'self'", "data:", "https://*.googleusercontent.com"],
+            "script-src": ["'self'"],
+            "connect-src": ["'self'"]
+        }
+    }
+})); // Sets security headers with custom CSP for local dev
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -28,7 +37,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5, 
+    max: 20, // Increased from 5 to 20
     message: { message: 'Too many authentication attempts, please try again later' }
 });
 
@@ -43,7 +52,7 @@ app.use(session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
@@ -58,15 +67,35 @@ app.use('/api', apiRoutes);
 app.get('/health', async (req, res) => {
     try {
         const pool = require('./src/config/db');
+        const start = Date.now();
         await pool.query('SELECT 1');
+        const ping = Date.now() - start;
+        
+        let dbUptimeRaw = null;
+        try {
+            // Fetch DB Uptime
+            const [rows] = await pool.query("SHOW GLOBAL STATUS LIKE 'Uptime'");
+            dbUptimeRaw = rows[0]?.Value;
+        } catch (dbErr) {
+            console.warn('DEBUG: Health Check - Could not fetch DB uptime:', dbErr.message);
+        }
+
+        const serverUptimeSec = Math.floor(process.uptime());
+
         res.status(200).json({
             status: 'OK',
             service: 'Zorvyn Finance API',
-            database: 'connected',
+            database: {
+                status: 'connected',
+                ping: `${ping}ms`,
+                uptime: dbUptimeRaw ? `${dbUptimeRaw}s` : null
+            },
             timestamp: new Date().toISOString(),
-            uptime: `${Math.floor(process.uptime())}s`
+            serverUptime: `${serverUptimeSec}s`,
+            node_env: process.env.NODE_ENV || 'development'
         });
     } catch (err) {
+        console.error('DEBUG: Health Check ERROR:', err.message);
         res.status(503).json({
             status: 'DEGRADED',
             service: 'Zorvyn Finance API',
@@ -88,4 +117,5 @@ app.use((err, req, res, next) => {
 // Start Server
 app.listen(PORT, () => {
     console.log(`Finance Backend Service [Secure] running on port ${PORT}`);
+    console.log(`DEBUG: Frontend URL configured as: ${process.env.FRONTEND_URL || 'UNDEFINED'}`);
 });

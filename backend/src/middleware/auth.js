@@ -12,14 +12,16 @@ const authenticate = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         const [users] = await pool.query(`
-            SELECT u.id, u.username, u.email, u.status, r.name as role 
+            SELECT u.id, u.username, u.email, u.status, u.organization_id, 
+                   r.name as role, o.name as org_name
             FROM users u 
             JOIN roles r ON u.role_id = r.id 
+            JOIN organizations o ON u.organization_id = o.id
             WHERE u.id = ? AND u.status = 'Active'
         `, [decoded.id]);
 
         if (users.length === 0) {
-            return res.status(401).json({ message: 'User not found or inactive' });
+            return res.status(401).json({ message: 'User not found, inactive, or unassigned' });
         }
 
         req.user = users[0];

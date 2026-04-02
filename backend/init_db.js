@@ -45,6 +45,7 @@ async function initDB() {
                 email VARCHAR(100) NOT NULL UNIQUE,
                 password_hash VARCHAR(255),
                 google_id VARCHAR(255) UNIQUE,
+                avatar_url VARCHAR(255),
                 is_verified BOOLEAN DEFAULT FALSE,
                 role_id INT,
                 status ENUM('Active', 'Inactive') DEFAULT 'Active',

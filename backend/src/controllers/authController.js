@@ -7,13 +7,25 @@ require('dotenv').config();
 
 const register = async (req, res) => {
     try {
-        const { username, email, password, role_name } = req.body;
-        console.log(`DEBUG: Auth - Register attempt for ${email}`);
+        const { username, email, password, role_name, organization_name } = req.body;
+        console.log(`DEBUG: Auth - Register attempt for ${email} in Org: ${organization_name}`);
         
         const [existing] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
             console.log(`DEBUG: Auth - Register failed: ${email} already exists`);
             return res.status(400).json({ message: 'User already exists' });
+        }
+
+        // --- Multi-Tenancy: Org Creation/Lookup ---
+        const orgName = organization_name || 'Zorvyn Global';
+        const orgSlug = orgName.toLowerCase().replace(/\s+/g, '-');
+        const [orgs] = await pool.query('SELECT id FROM organizations WHERE name = ?', [orgName]);
+        let orgId;
+        if (orgs.length === 0) {
+            const [result] = await pool.query('INSERT INTO organizations (name, slug) VALUES (?, ?)', [orgName, orgSlug]);
+            orgId = result.insertId;
+        } else {
+            orgId = orgs[0].id;
         }
 
         const [roles] = await pool.query('SELECT id FROM roles WHERE name = ?', [role_name || 'Viewer']);
@@ -25,8 +37,8 @@ const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         const [result] = await pool.query(
-            'INSERT INTO users (username, email, password_hash, role_id, is_verified) VALUES (?, ?, ?, ?, FALSE)',
-            [username, email, hashedPassword, roles[0].id]
+            'INSERT INTO users (username, email, password_hash, role_id, organization_id, is_verified) VALUES (?, ?, ?, ?, ?, FALSE)',
+            [username, email, hashedPassword, roles[0].id, orgId]
         );
 
         const userId = result.insertId;
@@ -41,7 +53,7 @@ const register = async (req, res) => {
         await sendOTP(email, otp);
         console.log(`DEBUG: Auth - OTP sent to ${email} via Resend`);
 
-        await logAction(userId, 'USER_REGISTERED', { email }, req);
+        await logAction(userId, 'USER_REGISTERED', { email }, req, orgId);
 
         res.status(201).json({ message: 'User registered. Please verify your email with the OTP sent.', userId });
     } catch (err) {
@@ -74,7 +86,8 @@ const verifyOTP = async (req, res) => {
         await pool.query('DELETE FROM otps WHERE user_id = ?', [userId]);
         
         console.log(`DEBUG: Auth - User ${email} verified successfully`);
-        await logAction(userId, 'USER_VERIFIED', { email }, req);
+        const [userInfo] = await pool.query('SELECT organization_id FROM users WHERE id = ?', [userId]);
+        await logAction(userId, 'USER_VERIFIED', { email }, req, userInfo[0].organization_id);
 
         res.json({ message: 'Email verified successfully' });
     } catch (err) {
@@ -89,9 +102,10 @@ const login = async (req, res) => {
         console.log(`DEBUG: Auth - Login attempt for ${email}`);
 
         const [users] = await pool.query(`
-            SELECT u.*, r.name as role 
+            SELECT u.*, r.name as role, o.name as org_name
             FROM users u 
             JOIN roles r ON u.role_id = r.id 
+            JOIN organizations o ON u.organization_id = o.id
             WHERE u.email = ? AND u.status = 'Active'
         `, [email]);
 
@@ -114,18 +128,25 @@ const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, role: user.role },
+            { id: user.id, role: user.role, organization_id: user.organization_id },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRY }
         );
 
         console.log(`DEBUG: Auth - Login successful for ${email} (Role: ${user.role})`);
-        await logAction(user.id, 'USER_LOGIN', { method: 'local' }, req);
+        await logAction(user.id, 'USER_LOGIN', { method: 'local' }, req, user.organization_id);
 
         res.json({
             message: 'Login successful',
             token,
-            user: { id: user.id, username: user.username, email: user.email, role: user.role }
+            user: { 
+                id: user.id, 
+                username: user.username, 
+                email: user.email, 
+                role: user.role,
+                org_name: user.org_name,
+                organization_id: user.organization_id
+            }
         });
     } catch (err) {
         console.error('DEBUG: Auth - Login ERROR:', err.message);
@@ -137,17 +158,36 @@ const googleCallback = async (req, res) => {
     try {
         const user = req.user;
         const token = jwt.sign(
-            { id: user.id, role: user.role || 'Viewer' },
+            { 
+                id: user.id, 
+                role: user.role || 'Viewer', 
+                organization_id: user.organization_id,
+                username: user.username, 
+                avatar_url: user.avatar_url 
+            },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRY }
         );
 
         await logAction(user.id, 'USER_LOGIN', { method: 'google' }, req);
         
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const userParam = encodeURIComponent(JSON.stringify({
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            avatar_url: user.avatar_url,
+            org_name: user.org_name,
+            organization_id: user.organization_id
+        }));
+        
+        console.log(`DEBUG: Google Callback - Redirecting to ${frontendUrl}/auth/callback`);
+        res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${userParam}`);
     } catch (err) {
         console.error(err);
-        res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}/login?error=oauth_failed`);
     }
 };
 
