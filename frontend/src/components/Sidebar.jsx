@@ -1,77 +1,110 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  ReceiptIndianRupee, 
-  ShieldCheck, 
+  Terminal, 
+  Database, 
+  Activity, 
   LogOut, 
-  User, 
-  Settings 
+  User,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 const Sidebar = () => {
-    const { user, logout } = useAuthStore();
-    const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
 
-    const menuItems = [
-        { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/', roles: ['Admin', 'Analyst', 'Viewer'] },
-        { name: 'Records', icon: <ReceiptIndianRupee size={20} />, path: '/records', roles: ['Admin', 'Analyst', 'Viewer'] },
-        { name: 'Audit Logs', icon: <ShieldCheck size={20} />, path: '/logs', roles: ['Admin'] },
-    ];
+  const navItems = [
+    { name: 'Terminal', path: '/', icon: Terminal, roles: ['Admin', 'Analyst', 'Viewer'] },
+    { name: 'Records', path: '/records', icon: Database, roles: ['Admin', 'Analyst', 'Viewer'] },
+    { name: 'Security Logs', path: '/logs', icon: Activity, roles: ['Admin'] },
+  ];
 
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
-    return (
-        <aside className="w-64 bg-[#060a14] border-r border-[#334155] flex flex-col h-screen sticky top-0">
-            <div className="p-6">
-                <h1 className="text-2xl font-bold text-[#10B981] flex items-center gap-2">
-                    <ShieldCheck size={28} /> Zorvyn
-                </h1>
-                <p className="text-[10px] text-slate-500 tracking-widest uppercase mt-1">Finance Portal</p>
+  const userRole = user?.role || 'Viewer';
+
+  return (
+    <aside
+      className={`relative h-screen bg-[#0F172A] border-r border-white/5 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${
+        collapsed ? 'w-16' : 'w-64'
+      }`}
+    >
+      {/* Collapse Toggle */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="absolute -right-3 top-8 z-20 w-6 h-6 bg-[#1E293B] border border-white/10 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-all shadow-lg"
+      >
+        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+      </button>
+
+      {/* Logo */}
+      <div className={`flex items-center gap-3 p-5 border-b border-white/5 min-h-[64px] ${collapsed ? 'justify-center' : ''}`}>
+        <div className="w-7 h-7 bg-emerald-500 rounded-sm flex items-center justify-center font-black text-[#0F172A] text-xs shrink-0 shadow-lg shadow-emerald-500/20">
+          A
+        </div>
+        {!collapsed && (
+          <div className="overflow-hidden">
+            <span className="font-black tracking-tight text-white uppercase text-[10px] block leading-none">Internal Portal</span>
+            <span className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest mt-0.5 block">Zorvyn Security</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 py-4 space-y-1 px-2 overflow-hidden">
+        {navItems.filter(item => item.roles.includes(userRole)).map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            title={collapsed ? item.name : undefined}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-3 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all group relative ${
+                isActive
+                  ? 'bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500'
+                  : 'text-slate-500 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
+              } ${collapsed ? 'justify-center' : ''}`
+            }
+          >
+            <item.icon size={16} className="shrink-0" />
+            {!collapsed && <span className="truncate">{item.name}</span>}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User + Logout */}
+      <div className={`p-3 border-t border-white/5 space-y-2 ${collapsed ? 'items-center flex flex-col' : ''}`}>
+        <div className={`flex items-center gap-3 px-2 py-2 ${collapsed ? 'justify-center' : ''}`}>
+          <div className="w-8 h-8 rounded-sm bg-[#1E293B] border border-white/10 flex items-center justify-center text-slate-400 shrink-0">
+            <User size={14} />
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <p className="text-[10px] font-black text-white uppercase tracking-tight truncate leading-none">{user?.username || 'GUEST'}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <p className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest truncate">{user?.role || 'RESTRICTED'}</p>
+              </div>
             </div>
+          )}
+        </div>
 
-            <nav className="flex-1 px-4 space-y-2">
-                {menuItems.filter(item => item.roles.includes(user?.role)).map((item) => (
-                    <NavLink
-                        key={item.path}
-                        to={item.path}
-                        className={({ isActive }) => `
-                            flex items-center gap-3 px-4 py-3 rounded-lg transition-all
-                            ${isActive 
-                                ? 'bg-[#10B981] text-[#000] font-semibold shadow-lg shadow-emerald-500/20' 
-                                : 'text-slate-400 hover:bg-[#1e293b] hover:text-white'}
-                        `}
-                    >
-                        {item.icon}
-                        <span>{item.name}</span>
-                    </NavLink>
-                ))}
-            </nav>
-
-            <div className="p-4 border-t border-[#334155]">
-                <div className="flex items-center gap-3 px-4 py-3 text-slate-300">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                        <User size={16} />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-medium truncate">{user?.username}</p>
-                        <p className="text-[10px] text-slate-500 uppercase">{user?.role}</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 mt-2 text-slate-400 hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-colors"
-                >
-                    <LogOut size={20} />
-                    <span>Sign Out</span>
-                </button>
-            </div>
-        </aside>
-    );
+        <button
+          onClick={handleLogout}
+          title={collapsed ? 'Terminate Session' : undefined}
+          className={`flex items-center gap-3 px-3 py-3 rounded-sm text-[10px] font-black uppercase tracking-widest text-red-500/70 hover:text-red-400 hover:bg-red-500/5 transition-all w-full ${collapsed ? 'justify-center' : ''}`}
+        >
+          <LogOut size={14} className="shrink-0" />
+          {!collapsed && <span>Terminate Session</span>}
+        </button>
+      </div>
+    </aside>
+  );
 };
 
 export default Sidebar;

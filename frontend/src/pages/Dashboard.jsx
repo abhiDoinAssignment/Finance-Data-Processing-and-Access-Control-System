@@ -28,25 +28,47 @@ const Dashboard = () => {
         fetchSummary();
     }, []);
 
-    if (loading || !summary) {
+    const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+    if (loading) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500" />
+            <div className="flex items-center justify-center h-64">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500 border-r-transparent" />
+                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">Loading Terminal...</p>
+                </div>
             </div>
         );
     }
 
-    const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
+    // If no summary data, show empty state instead of blank screen
+    if (!summary) {
+        return (
+            <div className="space-y-8">
+                <header className="flex justify-between items-end border-b border-white/5 pb-6">
+                    <div>
+                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-2">Dashboard</p>
+                        <h2 className="text-3xl font-black text-white tracking-tighter italic">Finance Terminal</h2>
+                        <p className="text-slate-500 text-sm mt-1 font-medium">No data available — add records to get started.</p>
+                    </div>
+                </header>
+                <div className="fine-border p-12 text-center text-slate-600 font-black text-[10px] uppercase tracking-widest">
+                    No Financial Data Loaded. Navigate to Records to add transactions.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8">
-            <header className="flex justify-between items-end">
+            <header className="flex justify-between items-end border-b border-white/5 pb-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-100 italic">Dashboard Overview</h2>
-                    <p className="text-slate-400 mt-1">Real-time financial performance and analytics.</p>
+                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-2">Dashboard</p>
+                    <h2 className="text-3xl font-black text-white tracking-tighter italic">Finance Terminal</h2>
+                    <p className="text-slate-500 text-sm mt-1 font-medium">Real-time financial performance and analytics.</p>
                 </div>
-                <div className="text-sm font-semibold text-slate-500 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700">
-                    Live Feed {new Date().toLocaleDateString()}
+                <div className="text-[9px] font-black text-slate-600 bg-white/[0.03] px-4 py-2 rounded-sm border border-white/5 uppercase tracking-widest">
+                    Live · {new Date().toLocaleDateString()}
                 </div>
             </header>
 

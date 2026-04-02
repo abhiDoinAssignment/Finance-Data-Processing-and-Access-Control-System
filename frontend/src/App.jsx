@@ -10,6 +10,8 @@ import Logs from './pages/Logs';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
+import Landing from './pages/Landing';
+import InteractiveGlow from './components/InteractiveGlow';
 
 // Handling Google OAuth Redirect
 const AuthCallback = () => {
@@ -43,8 +45,10 @@ function App() {
 
   return (
     <BrowserRouter>
+      <InteractiveGlow />
       <Routes>
-        {/* Auth Routes */}
+        {/* Public Landing & Auth Routes */}
+        <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOTP />} />
@@ -57,7 +61,7 @@ function App() {
           <Route path="/logs" element={<Logs />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </BrowserRouter>
   );
