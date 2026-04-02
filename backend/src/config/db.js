@@ -9,10 +9,16 @@ console.log('DEBUG: DB Config - Target Host:', process.env.DB_HOST);
 // Resolve CA cert: prefer env variable (prod/Render), fall back to file (local dev)
 let caCert;
 if (process.env.DB_CA_CERT) {
-    console.log('DEBUG: DB Config - Using CA cert from environment (Base64 Mode)');
-    // Strip surrounding quotes/whitespace Render may inject around the value
-    const rawCert = process.env.DB_CA_CERT.replace(/^["'\s]+|["'\s]+$/g, '');
-    caCert = Buffer.from(rawCert, 'base64').toString('utf-8');
+    const stripped = process.env.DB_CA_CERT.replace(/^["'\s]+|["'\s]+$/g, '');
+    if (stripped.startsWith('-----BEGIN')) {
+        // Raw PEM pasted directly
+        console.log('DEBUG: DB Config - Using CA cert from environment (Raw PEM Mode)');
+        caCert = stripped;
+    } else {
+        // Legacy base64-encoded
+        console.log('DEBUG: DB Config - Using CA cert from environment (Base64 Mode)');
+        caCert = Buffer.from(stripped, 'base64').toString('utf-8');
+    }
 } else {
     try {
         const certPath = path.resolve(__dirname, '../../certs/mysql_ca.pem');
