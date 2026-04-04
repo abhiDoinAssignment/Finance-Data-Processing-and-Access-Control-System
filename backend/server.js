@@ -112,24 +112,36 @@ app.get('/auth/google/callback', (req, res, next) => {
 // Routes
 app.use('/api', apiRoutes);
 
-// Health Check — excluded from rate limiter, safe to ping externally
+// ── /ping — Minimal keep-alive for cron-job.org ──────────────────────────
+// Returns a tiny plain-text "OK" response (~9 bytes) so cron-job.org never
+// hits its "output too large" failure limit.
+// Still runs SELECT 1 against Aiven so the DB registers activity.
+// ➜ Point cron-job.org at: https://finance-data-processing-and-access.onrender.com/ping
+app.get('/ping', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.status(200).type('text/plain').send('OK');
+    } catch (err) {
+        console.error('[/ping] DB unreachable:', err.message);
+        res.status(503).type('text/plain').send('DB_DOWN');
+    }
+});
+
+// ── /health — Verbose status (for your own monitoring dashboard) ──────────
+// Do NOT point cron-job.org here — the JSON payload can exceed its limit.
 app.get('/health', async (req, res) => {
     try {
-        const pool = require('./src/config/db');
         const start = Date.now();
         await pool.query('SELECT 1');
         const ping = Date.now() - start;
-        
+
         let dbUptimeRaw = null;
         try {
-            // Fetch DB Uptime
             const [rows] = await pool.query("SHOW GLOBAL STATUS LIKE 'Uptime'");
             dbUptimeRaw = rows[0]?.Value;
         } catch (dbErr) {
             console.warn('DEBUG: Health Check - Could not fetch DB uptime:', dbErr.message);
         }
-
-        const serverUptimeSec = Math.floor(process.uptime());
 
         res.status(200).json({
             status: 'OK',
@@ -140,7 +152,7 @@ app.get('/health', async (req, res) => {
                 uptime: dbUptimeRaw ? `${dbUptimeRaw}s` : null
             },
             timestamp: new Date().toISOString(),
-            serverUptime: `${serverUptimeSec}s`,
+            serverUptime: `${Math.floor(process.uptime())}s`,
             node_env: process.env.NODE_ENV || 'development'
         });
     } catch (err) {
@@ -167,4 +179,49 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`Finance Backend Service [Secure] running on port ${PORT}`);
     console.log(`DEBUG: Frontend URL configured as: ${process.env.FRONTEND_URL || 'UNDEFINED'}`);
+
+    // ── Aiven Keep-Alive ─────────────────────────────────────────────────────
+    // Aiven Free Tier powers off MySQL after ~24h of inactivity.
+    // This timer runs a lightweight SELECT 1 directly against the pool
+    // every 10 minutes so Aiven always sees traffic from the backend.
+    const AIVEN_PING_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+    const dbPool = require('./src/config/db');
+
+    const pingAiven = async () => {
+        try {
+            const start = Date.now();
+            await dbPool.query('SELECT 1');
+            console.log(`[Aiven Keep-Alive] OK — db responded in ${Date.now() - start}ms`);
+        } catch (err) {
+            console.error('[Aiven Keep-Alive] FAILED —', err.message);
+        }
+    };
+
+    setInterval(pingAiven, AIVEN_PING_INTERVAL_MS);
+    console.log(`[Aiven Keep-Alive] Scheduler started — pinging every ${AIVEN_PING_INTERVAL_MS / 60000} minutes`);
+
+    // ── Render Self-Ping ─────────────────────────────────────────────────────
+    // Render Free Tier spins down after 15 min of no HTTP traffic.
+    // As a secondary safety net (in case the external cron-job is delayed),
+    // the server pings its own /health route every 12 minutes.
+    // The external cron-job.org ping is still the PRIMARY keep-alive;
+    // this is just a fallback so the process stays warm.
+    if (process.env.NODE_ENV === 'production') {
+        const https = require('https');
+        const SELF_URL = process.env.RENDER_EXTERNAL_URL
+            || 'https://finance-data-processing-and-access.onrender.com';
+        const SELF_PING_INTERVAL_MS = 12 * 60 * 1000; // 12 minutes
+
+        const selfPing = () => {
+            https.get(`${SELF_URL}/ping`, (res) => {
+                console.log(`[Render Self-Ping] /ping responded with HTTP ${res.statusCode}`);
+                res.resume(); // Drain response body to free socket
+            }).on('error', (err) => {
+                console.warn('[Render Self-Ping] Request failed —', err.message);
+            });
+        };
+
+        setInterval(selfPing, SELF_PING_INTERVAL_MS);
+        console.log(`[Render Self-Ping] Scheduler started — pinging ${SELF_URL}/health every ${SELF_PING_INTERVAL_MS / 60000} minutes`);
+    }
 });
